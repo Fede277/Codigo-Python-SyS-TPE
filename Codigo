@@ -1,0 +1,124 @@
+-------------------------------------------------- TPE parte 1 --------------------------------------------------
+
+--------------------------------------------------     1)a)    --------------------------------------------------
+
+import librosa
+import matplotlib.pyplot as plt
+import numpy as np
+
+filename = 'picasso.wav'  # o 'piiicaaassooo.wav'
+y, sr = librosa.load(filename, sr=None)
+
+t = np.arange(len(y)) / sr
+
+plt.figure(figsize=(14, 5))
+plt.plot(t, y, color='blue', linewidth=1.0, label='Señal de voz')
+plt.xlabel('Tiempo (s)')
+plt.ylabel('Amplitud')
+plt.title('Señal de Voz (Picasso normal)')
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+
+--------------------------------------------------     1)b)    --------------------------------------------------
+
+import librosa
+import matplotlib.pyplot as plt
+import numpy as np
+
+def plot_segment(filename, start_time, end_time, plot_title="Segmento"):
+
+    y, sr = librosa.load(filename, sr=None)
+    
+    t_full = np.arange(len(y)) / sr
+    
+    start_idx = int(start_time * sr)
+    end_idx = int(end_time * sr)
+    segment = y[start_idx:end_idx]
+    
+    t_segment = np.linspace(start_time, end_time, len(segment))
+    
+    plt.figure(figsize=(10, 4))
+    plt.plot(t_segment, segment, color='blue', linewidth=1)
+    plt.xlabel("Tiempo (s)")
+    plt.ylabel("Amplitud")
+    plt.title(plot_title)
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+# para "picasso.wav"
+
+plot_segment('picasso.wav', start_time=1.16, end_time=1.22, 
+             plot_title="Segmento Periódico - Vocal [a] en 'Picasso' (Normal)")
+
+plot_segment('picasso.wav', start_time=1.28, end_time=1.38, 
+             plot_title="Segmento No Periódico - Consonante [s] en 'Picasso' (Normal)")
+
+# para "piiicaaassooo.wav"
+
+plot_segment('piiicaaassooo.wav', start_time=2.25, end_time=3.00, 
+             plot_title="Segmento Periódico - Vocal [a] en 'Piiicaaassooo' (Lento)")
+
+plot_segment('piiicaaassooo.wav', start_time=3.25, end_time=3.50, 
+             plot_title="Segmento No Periódico - Consonante [s] en 'Piiicaaassooo' (Lento)")
+
+
+--------------------------------------------------     1)c)    --------------------------------------------------
+
+import numpy as np
+import matplotlib.pyplot as plt
+import librosa
+import librosa.display
+
+def plot_fft(segment, sr, title="FFT"):
+
+    N = len(segment)
+    fft_vals = np.fft.rfft(segment)
+    fft_mag = np.abs(fft_vals)
+    freqs = np.fft.rfftfreq(N, d=1/sr)
+    
+    plt.figure(figsize=(10,4))
+    plt.plot(freqs, fft_mag, color='blue')
+    plt.xlabel("Frecuencia (Hz)")
+    plt.ylabel("Magnitud")
+    plt.title(title)
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+    
+    
+y_picasso, sr_picasso = librosa.load('picasso.wav', sr=None)
+y_piiicaaassooo, sr_piiicaaassooo = librosa.load('piiicaaassooo.wav', sr=None)
+
+multi_period_interval_picasso = (1.16, 1.22)
+single_period_interval_picasso = (1.18473, 1.19273)
+
+# Para "piiicaaassooo.wav" (lenta):
+multi_period_interval_piiica = (2.25, 3.00)
+single_period_interval_piiica = (2.53371, 2.54295)
+
+def extract_segment(y, sr, start_time, end_time):
+    start_idx = int(start_time * sr)
+    end_idx = int(end_time * sr)
+    return y[start_idx:end_idx]
+
+segment_multi_picasso = extract_segment(y_picasso, sr_picasso, *multi_period_interval_picasso)
+segment_single_picasso = extract_segment(y_picasso, sr_picasso, *single_period_interval_picasso)
+
+segment_multi_piiica = extract_segment(y_piiicaaassooo, sr_piiicaaassooo, *multi_period_interval_piiica)
+segment_single_piiica = extract_segment(y_piiicaaassooo, sr_piiicaaassooo, *single_period_interval_piiica)
+
+
+plot_fft(segment_multi_picasso, sr_picasso, title="FFT de Vocal [a] en 'Picasso' (varios períodos)")
+
+plot_fft(segment_single_picasso, sr_picasso, title="FFT de Vocal [a] en 'Picasso' (un solo período)")
+
+plot_fft(segment_multi_piiica, sr_piiicaaassooo, title="FFT de Vocal [a] en 'Piiicaaassooo' (varios períodos)")
+
+plot_fft(segment_single_piiica, sr_piiicaaassooo, title="FFT de Vocal [a] en 'Piiicaaassooo' (un solo período)")
+
+
+
