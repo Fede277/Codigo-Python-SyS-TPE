@@ -129,4 +129,341 @@ plot_fft(segment_single_piiica, sr_piiicaaassooo, title="FFT de Vocal [a] en 'Pi
 
 
 
+# -------------------------------------------------- TPE parte 2 --------------------------------------------------
+# --------------------------------------------------     2)    --------------------------------------------------
 
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.io import wavfile
+from scipy.signal import spectrogram
+
+sr, y = wavfile.read("picasso_lento.wav")
+
+# Convertir a mono si es estéreo
+if y.ndim > 1:
+    y = y.mean(axis=1)
+
+# Normalizar amplitud
+y = y / np.max(np.abs(y))
+
+# ---- Espectrograma de banda angosta ----
+
+# Ventana larga → alta resolución en frecuencia, baja en tiempo
+ventana_ms = 25
+nperseg = int(sr * ventana_ms / 1000)  # por ejemplo, 25 ms
+noverlap = int(nperseg * 0.75)         # superposición del 75%
+
+# Calcular espectrograma (modo magnitud)
+f, t, Sxx = spectrogram(y, sr, window='hann', nperseg=nperseg,
+                        noverlap=noverlap, mode='magnitude')
+# Graficar espectrograma en dB
+plt.figure(figsize=(12, 5))
+plt.pcolormesh(t, f, 20 * np.log10(Sxx + 1e-10), shading='gouraud', cmap='magma')
+plt.title("Espectrograma de banda angosta - Señal lenta")
+plt.xlabel("Tiempo (s)")
+plt.ylabel("Frecuencia (Hz)")
+plt.ylim(0, 4000)  # limitar a 4 kHz para ver zona vocal
+plt.colorbar(label="Magnitud (dB)")
+plt.tight_layout()
+plt.savefig("espectrograma_banda_angosta.png")
+plt.close()
+
+print("Espectrograma guardado como 'espectrograma_banda_angosta.png'")
+
+# ---- Espectrograma de banda ancha ----
+
+# Ventana corta → alta resolución temporal, baja en frecuencia
+ventana_ms = 4  # por ejemplo, 4 ms
+nperseg = int(sr * ventana_ms / 1000)
+noverlap = int(nperseg * 0.75)
+nfft = 1024
+
+# Calcular espectrograma
+f, t, Sxx = spectrogram(y, sr, window='hann', nperseg=nperseg,
+                        noverlap=noverlap, nfft=nfft, mode='magnitude')
+
+# Graficar espectrograma en dB
+plt.figure(figsize=(12, 5))
+plt.pcolormesh(t, f, 20 * np.log10(Sxx + 1e-10), shading='auto', cmap='magma')
+plt.title("Espectrograma de banda ancha - Señal lenta")
+plt.xlabel("Tiempo (s)")
+plt.ylabel("Frecuencia (Hz)")
+plt.ylim(0, 4000)  # zona de formantes
+plt.colorbar(label="Magnitud (dB)")
+plt.tight_layout()
+plt.savefig("espectrograma_banda_ancha.png")
+plt.close()
+
+print("Espectrograma guardado como 'espectrograma_banda_ancha.png'")
+
+# Lista de vocales y archivos
+vocales = ['i', 'a', 'o']
+archivos = ['i_lento.wav', 'a_lento.wav', 'o_lento.wav']
+
+for vocal, archivo in zip(vocales, archivos):
+    # Leer audio
+    sr, y = wavfile.read(archivo)
+
+    if y.ndim > 1:
+        y = y.mean(axis=1)
+    y = y / np.max(np.abs(y))
+
+    # ---- Espectrograma de banda angosta (ventana larga) ----
+    ventana_angosta_ms = 25
+    nperseg_angosta = int(sr * ventana_angosta_ms / 1000)
+    noverlap_angosta = int(nperseg_angosta * 0.75)
+
+    f_a, t_a, Sxx_a = spectrogram(y, sr, window='hann',
+                                  nperseg=nperseg_angosta,
+                                  noverlap=noverlap_angosta,
+                                  mode='magnitude')
+
+    plt.figure(figsize=(10, 4))
+    plt.pcolormesh(t_a, f_a, 20 * np.log10(Sxx_a + 1e-10),
+                   shading='auto', cmap='magma')
+    plt.title(f"Espectrograma de banda angosta - Vocal [{vocal}]")
+    plt.xlabel("Tiempo (s)")
+    plt.ylabel("Frecuencia (Hz)")
+    plt.ylim(0, 4000)
+    plt.colorbar(label="Magnitud (dB)")
+    plt.tight_layout()
+    plt.savefig(f"espectrograma_{vocal}_banda_angosta.png")
+    plt.close()
+
+    # ---- Espectrograma de banda ancha (ventana corta) ----
+    ventana_ancha_ms = 4
+    nperseg_ancha = int(sr * ventana_ancha_ms / 1000)
+    noverlap_ancha = int(nperseg_ancha * 0.75)
+
+    f_b, t_b, Sxx_b = spectrogram(y, sr, window='hann',
+                                  nperseg=nperseg_ancha,
+                                  noverlap=noverlap_ancha,
+                                  nfft=nfft,
+                                  mode='magnitude')
+
+    plt.figure(figsize=(10, 4))
+    plt.pcolormesh(t_b, f_b, 20 * np.log10(Sxx_b + 1e-10),
+                   shading='auto', cmap='magma')
+    plt.title(f"Espectrograma de banda ancha - Vocal [{vocal}]")
+    plt.xlabel("Tiempo (s)")
+    plt.ylabel("Frecuencia (Hz)")
+    plt.ylim(0, 4000)
+    plt.colorbar(label="Magnitud (dB)")
+    plt.tight_layout()
+    plt.savefig(f"espectrograma_{vocal}_banda_ancha.png")
+    plt.close()
+
+    print(f"Espectrogramas guardados para vocal [{vocal}]")
+
+from scipy.signal import find_peaks
+from scipy.signal.windows import hann
+from scipy.io.wavfile import write
+
+# ---- TD-PSOLA para modificar pitch ----
+def td_psola(signal, sr, pitch_factor):
+    # Detectar picos en la señal
+    peaks, _ = find_peaks(signal, distance=int(0.005 * sr))  # ~5 ms entre picos
+
+    if len(peaks) < 2:
+        raise ValueError("No se detectaron suficientes picos para aplicar TD-PSOLA.")
+
+    T0_original = int(np.median(np.diff(peaks)))
+    T0_nuevo = int(T0_original / pitch_factor)
+    ventana = hann(2 * T0_original)
+
+    nueva_senal = np.zeros(int(len(signal) * 1.5))  # espacio extra
+    j = 0  # índice para la nueva señal
+
+    for centro in peaks:
+        ini = centro - T0_original
+        fin = centro + T0_original
+
+        if ini < 0 or fin > len(signal):
+            continue
+
+        fragmento = signal[ini:fin] * ventana
+        nuevo_ini = j
+        nuevo_fin = j + len(fragmento)
+
+        if nuevo_fin > len(nueva_senal):
+            break
+
+        nueva_senal[nuevo_ini:nuevo_fin] += fragmento
+        j += T0_nuevo
+
+    nueva_senal = nueva_senal[:j]
+    nueva_senal = nueva_senal / np.max(np.abs(nueva_senal))  # normalizar
+    return nueva_senal
+
+# Aplicar TD-PSOLA a la señal lenta completa
+sr, y = wavfile.read("picasso_lento.wav")
+
+if y.ndim > 1:
+    y = y.mean(axis=1)
+y = y / np.max(np.abs(y))
+
+# Aplicar cambio de pitch (hombre → mujer: multiplicar f0 por 1.4)
+y_modificado = td_psola(y, sr, pitch_factor=1.4)
+
+# Guardar resultado
+write("picasso_lento_mujer.wav", sr, (y_modificado * 32767).astype(np.int16))
+print("Señal modificada guardada como 'picasso_lento_mujer.wav'")
+
+# -------------------------------------------------- TPE parte 3 --------------------------------------------------
+# --------------------------------------------------     3) Procesamiento de los audios    --------------------------------------------------
+
+from pathlib import Path
+import argparse
+import filtro_fir as ff
+import operaciones_stft as ost
+import utilidades as ut
+
+# ── Definición de las tareas  ─────────────────────────────────────
+CONFIGURACION = {
+    8: dict(entrada="picasso_lento.wav",  modo="tiempo",
+            operacion="decimar",  factor=2),
+    9: dict(entrada="picasso_rapido.wav", modo="tiempo",
+            operacion="interpolar", factor=2),
+    10:dict(entrada="picasso_lento.wav",  modo="stft",
+            operacion="acelerar", factor=2),
+    11:dict(entrada="picasso_rapido.wav", modo="stft",
+            operacion="ralentizar", factor=2),
+}
+
+# ── Función despachadora ─────────────────────────────────────────────────────
+def ejecutar_tarea(id_tarea: int,
+                   raiz: Path = Path(__file__).parents[1]) -> None:
+    cfg      = CONFIGURACION[id_tarea]
+    ruta_in  = raiz / "audio" / cfg["entrada"]
+    sufijo   = f'{cfg["operacion"]}_{cfg["factor"]}x'
+    ruta_wav = raiz / "resultados" / "wav"      / f"{ruta_in.stem}_{sufijo}.wav"
+    ruta_fig = raiz / "resultados" / "figuras" / f"{ruta_in.stem}_{sufijo}.png"
+
+    fs, x = ut.cargar_wav(ruta_in)
+
+    # ─── Dominio temporal ───────────────────────────────────
+    if cfg["modo"] == "tiempo":
+        h_lp = ff.disenar_pasabajos(fs/(2*cfg["factor"]), fs)
+        if cfg["operacion"] == "decimar":
+            y = ut.decimar(x, cfg["factor"], h_lp)
+        else:  # interpolar
+            y = ut.interpolar(x, cfg["factor"], h_lp)
+
+    # ─── Dominio STFT ───────────────────────────────────────
+    else:
+        X = ost.calcular_stft(x, fs)
+        if cfg["operacion"] == "acelerar":
+            X_mod = X[:, ::cfg["factor"]]
+        else:  # ralentizar
+            X_mod = ost.interpolar_columnas(X, cfg["factor"])
+        y = ost.reconstruir_istft(X_mod, fs)
+
+    # Guardar WAV + espectrograma
+    ut.guardar_wav(ruta_wav, fs, y)
+    ut.graficar_espectrograma(y, fs, ruta_fig)
+    print(f"completados: {ruta_wav.name}, {ruta_fig.name}")
+
+# ── Programa principal ───────────────────────────────────────────────────────
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Ejecutor de las tareas del TP – Parte 3")
+    parser.add_argument("--tarea", type=int, nargs="+", required=True,
+                        help="Número(s) de tarea a ejecutar")
+    args = parser.parse_args()
+
+    for tid in args.tarea:
+        ejecutar_tarea(tid)
+
+ # -------------------------  Filtro FIR  ------------------
+ 
+ import scipy.signal as sig
+
+def disenar_pasabajos(fc: float, fs: float,
+                      orden: int = 101,
+                      ventana: str = "hamming"):
+    """
+    Devuelve un FIR pasabajos (coeficientes h[n]):
+
+    fc  – frecuencia de corte en Hz
+    fs  – frecuencia de muestreo en Hz
+    orden – longitud del filtro (impar para fase lineal)
+    ventana – tipo de ventana en scipy.signal.firwin
+    """
+    return sig.firwin(orden, fc/(fs/2), window=ventana)
+
+# -------------------------  Operaciones STFT  ------------------
+
+    import numpy as np
+import librosa
+
+def calcular_stft(x, fs, tam_vent_ms=25, solapamiento=0.75):
+    n_fft     = int(fs * tam_vent_ms / 1000)
+    hop       = int(n_fft * (1 - solapamiento))
+    ventana   = "hann"
+    return librosa.stft(x, n_fft=n_fft, hop_length=hop,
+                        window=ventana, center=True)
+
+def reconstruir_istft(X, fs, tam_vent_ms=25, solapamiento=0.75):
+    n_fft = int(fs * tam_vent_ms / 1000)
+    hop   = int(n_fft * (1 - solapamiento))
+    ventana = "hann"
+    y = librosa.istft(X, hop_length=hop, window=ventana, length=None,
+                      center=True)
+    return y
+
+def interpolar_columnas(X, factor):
+    """
+    Inserta columnas interpoladas linealmente para ralentizar la señal.
+    factor = 2  →  duplica la duración (coloca 1 columna nueva entre cada 2).
+    """
+    if factor < 2 or not isinstance(factor, int):
+        raise ValueError("factor debe ser entero ≥ 2")
+    n_col = X.shape[1]
+    idx_original = np.arange(n_col)
+    idx_interp   = np.linspace(0, n_col-1, n_col*factor)
+    X_interp = np.zeros((X.shape[0], len(idx_interp)), dtype=X.dtype)
+    for fbin in range(X.shape[0]):
+        X_interp[fbin, :] = np.interp(idx_interp, idx_original, X[fbin, :])
+    return X_interp
+
+# -------------------------  Utilidades  ------------------
+
+from pathlib import Path
+import soundfile as sf
+import scipy.signal as sig
+import matplotlib.pyplot as plt
+
+def cargar_wav(ruta: Path):
+    x, fs = sf.read(ruta, always_2d=False)
+    return fs, x.astype(np.float32)
+
+def guardar_wav(ruta: Path, fs: int, y):
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(ruta, y, fs, subtype="PCM_16")
+
+def decimar(x, factor, h):
+    x_filtrado = sig.lfilter(h, [1.0], x)
+    return x_filtrado[::factor]
+
+def interpolar(x, factor, h):
+    """Inserta ceros y filtra con mismo pasabajos h"""
+    xp = np.zeros(len(x)*factor)
+    xp[::factor] = x
+    return sig.lfilter(h*factor, [1.0], xp)  # escala para conservar ganancia
+
+def graficar_espectrograma(x, fs, ruta_png, tam_vent_ms=25):
+    n_fft   = int(fs * tam_vent_ms / 1000)
+    _, _, Sxx = sig.spectrogram(x, fs, nperseg=n_fft,
+                                noverlap=int(n_fft*0.75),
+                                window="hann", mode="magnitude")
+    Sdb = 20*np.log10(Sxx + 1e-10)
+    plt.figure(figsize=(8, 4))
+    plt.imshow(Sdb, origin='lower', aspect='auto',
+               extent=[0, len(x)/fs, 0, fs/2])
+    plt.xlabel("Tiempo [s]")
+    plt.ylabel("Frecuencia [Hz]")
+    plt.colorbar(label="Magnitud [dB]")
+    plt.tight_layout()
+    ruta_png.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(ruta_png, dpi=300)
+    plt.close()
